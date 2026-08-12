@@ -50,12 +50,21 @@ Official references:
 
 ## Install for local testing
 
+First, clone the repository or download and extract GitHub's **Code → Download ZIP** archive:
+
+```powershell
+git clone https://github.com/JackSarg/PrismPath.git
+cd PrismPath
+```
+
+The repository root is the unpacked extension folder—it is the directory containing `manifest.json`. The `dist/` directory is generated locally only when a developer runs `npm run package`; it is not stored in GitHub.
+
 ### Chrome
 
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Select **Load unpacked**.
-4. Choose this project folder, or the unpacked contents of `dist/package` after packaging.
+4. Choose the extracted `PrismPath` repository folder containing `manifest.json`.
 5. Pin PrismPath if desired. Selecting its toolbar icon opens the persistent side panel.
 
 ### Microsoft Edge
@@ -63,7 +72,7 @@ Official references:
 1. Open `edge://extensions`.
 2. Enable **Developer mode**.
 3. Select **Load unpacked**.
-4. Choose this project folder, or the unpacked contents of `dist/package` after packaging.
+4. Choose the extracted `PrismPath` repository folder containing `manifest.json`.
 
 Existing pages may need one reload immediately after the extension is first installed. Browser-internal pages, extension stores, and some other protected pages cannot be inspected by any extension.
 

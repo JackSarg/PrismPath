@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PrismPath XPath Assistant",
   "short_name": "PrismPath",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Generate, verify, save, and retest stable XPath selectors for Blue Prism browser automation.",
   "minimum_chrome_version": "114",
   "permissions": [

@@ -78,7 +78,7 @@ Existing pages may need one reload immediately after the extension is first inst
 
 ## Saved selector regression checks
 
-Saved entries are automatically organised into collapsible webpage folders. A folder initially uses the webpage title; both the website folder and each saved element can be renamed to a memorable friendly name. The folder keeps the original page address visible underneath the friendly name.
+Saved entries are automatically organised into a compact, collapsed list of webpage folders. The current webpage is marked and moved to the top whenever it has saved entries. Click a webpage row to open its saved elements. A folder initially uses the webpage title, keeps the page address visible, and can be given a memorable friendly name using its pen icon. Each saved element has its own pen-icon rename control.
 
 Saved entries retain the page path and iframe context in which they were captured. On the relevant page:
 

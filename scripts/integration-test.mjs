@@ -75,6 +75,7 @@ const server = createServer((request, response) => {
 await new Promise((resolvePromise) => server.listen(0, "127.0.0.1", resolvePromise));
 const serverAddress = server.address();
 const fixtureUrl = `http://127.0.0.1:${serverAddress.port}/manual-fixture.html`;
+const otherPageUrl = `http://127.0.0.1:${serverAddress.port}/another-page.html`;
 
 const browserProcess = spawn(
   browserExecutable,
@@ -110,6 +111,15 @@ try {
   await panel.send("Page.enable");
 
   await waitFor(async () => (await evaluate(panel, "document.readyState")) === "complete", 5000, "side panel document");
+  const footerLinks = await evaluate(panel, "[...document.querySelectorAll('footer a')].map(link => link.href)");
+  const expectedFooterLinks = [
+    "https://prismpath.jacksarg.com/",
+    "https://github.com/JackSarg/PrismPath",
+    "https://www.linkedin.com/in/jacksarg/"
+  ];
+  if (JSON.stringify(footerLinks) !== JSON.stringify(expectedFooterLinks)) {
+    throw new Error(`Unexpected footer links: ${JSON.stringify(footerLinks)}`);
+  }
   const fixtureTabId = await evaluate(panel, `chrome.tabs.create({url:${JSON.stringify(fixtureUrl)},active:true}).then(tab => tab.id)`);
   const fixtureTarget = await waitForTarget(debuggerBase, fixtureUrl);
   const fixture = new CdpClient(fixtureTarget.webSocketDebuggerUrl);
@@ -152,24 +162,77 @@ try {
   await waitFor(async () => Number(await evaluate(panel, "document.querySelectorAll('.saved-card').length")) === 1, 5000, "saved selector card");
   const websiteFolderCount = Number(await evaluate(panel, "document.querySelectorAll('.website-folder').length"));
   if (websiteFolderCount !== 1) throw new Error(`Expected one website folder; found ${websiteFolderCount}.`);
+  const collapsedByDefault = Boolean(await evaluate(panel, "document.querySelector('.website-elements').hidden"));
+  if (!collapsedByDefault) throw new Error("Expected saved website folders to be collapsed by default.");
+  await evaluate(panel, "document.querySelector('[data-action=edit-website-name]').click(); true");
   await evaluate(panel, `(() => {
     const input = document.querySelector('.website-name');
     input.value = 'Customer Portal';
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    const element = document.querySelector('.saved-name');
-    element.value = 'Customer email field';
-    element.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('[data-action=save-website-name]').click();
     return true;
   })()`);
+  await waitFor(async () => (await evaluate(panel, "document.querySelector('.website-identity strong')?.textContent")) === "Customer Portal", 5000, "website rename render");
+  await evaluate(panel, "document.querySelector('.website-open').click(); true");
+  await waitFor(async () => !Boolean(await evaluate(panel, "document.querySelector('.website-elements').hidden")), 3000, "website folder expansion");
+  await evaluate(panel, "document.querySelector('[data-action=edit-element-name]').click(); true");
+  await evaluate(panel, `(() => {
+    const element = document.querySelector('.saved-name');
+    element.value = 'Customer email field';
+    document.querySelector('[data-action=save-element-name]').click();
+    return true;
+  })()`);
+  await waitFor(async () => (await evaluate(panel, "document.querySelector('.element-name-row strong')?.textContent")) === "Customer email field", 5000, "element rename render");
   await waitFor(async () => {
     const stored = await evaluate(panel, "chrome.storage.local.get(['prismpathSavedWebsites','prismpathSavedSelectors'])");
     const websiteName = Object.values(stored.prismpathSavedWebsites || {})[0]?.name;
     return websiteName === "Customer Portal" && stored.prismpathSavedSelectors?.[0]?.name === "Customer email field";
   }, 5000, "website and element renames");
-  await evaluate(panel, "document.querySelector('[data-action=toggle-website]').click(); true");
+  await evaluate(panel, "document.querySelector('.website-open').click(); true");
   await waitFor(async () => Boolean(await evaluate(panel, "document.querySelector('.website-elements').hidden")), 3000, "website folder collapse");
-  await evaluate(panel, "document.querySelector('[data-action=toggle-website]').click(); true");
-  await waitFor(async () => !Boolean(await evaluate(panel, "document.querySelector('.website-elements').hidden")), 3000, "website folder expansion");
+
+  await evaluate(panel, `(async () => {
+    const keys = ['prismpathSavedWebsites', 'prismpathSavedSelectors'];
+    const stored = await chrome.storage.local.get(keys);
+    const original = stored.prismpathSavedSelectors[0];
+    const otherUrl = ${JSON.stringify(otherPageUrl)};
+    const other = {
+      ...original,
+      id: 'other-page-selector',
+      name: 'Another page element',
+      pageTitle: 'Another portal',
+      pageUrl: otherUrl,
+      pageUrlBase: otherUrl,
+      lastStatus: 'untested',
+      lastCount: 0,
+      lastTestedAt: ''
+    };
+    stored.prismpathSavedSelectors = [other, original];
+    stored.prismpathSavedWebsites[otherUrl] = {
+      name: 'Another portal',
+      defaultName: 'Another portal',
+      pageUrl: otherUrl,
+      createdAt: new Date().toISOString(),
+      updatedAt: ''
+    };
+    await chrome.storage.local.set(stored);
+    state.saved = stored.prismpathSavedSelectors.map(normaliseStoredSelector).filter(Boolean);
+    state.websites = normaliseStoredWebsites(stored.prismpathSavedWebsites);
+    ensureWebsitesForSelectors(state.saved);
+    await refreshActiveContext();
+    renderSaved();
+    renderCounts();
+    return true;
+  })()`);
+  await waitFor(async () => Number(await evaluate(panel, "document.querySelectorAll('.website-folder').length")) === 2, 5000, "two saved website folders");
+  const currentPageFirst = await evaluate(panel, `(() => {
+    const folders = [...document.querySelectorAll('.website-folder')];
+    return folders[0]?.dataset.websiteKey === ${JSON.stringify(fixtureUrl)}
+      && Boolean(folders[0].querySelector('.current-page-badge'))
+      && folders.every(folder => folder.querySelector('.website-elements').hidden);
+  })()`);
+  if (!currentPageFirst) throw new Error("Expected the current page folder first, marked Current, with the URL list collapsed.");
+  await evaluate(panel, "document.querySelector('.website-folder .website-open').click(); true");
+  await waitFor(async () => !Boolean(await evaluate(panel, "document.querySelector('.website-folder .website-elements').hidden")), 3000, "current website folder expansion");
 
   await evaluate(panel, `chrome.tabs.update(${Number(fixtureTabId)}, {active:true}).then(() => true)`);
   await evaluate(panel, "document.querySelector('#reload-retest-button').click(); true");
@@ -182,7 +245,7 @@ try {
   console.log(`PASS extension loaded with id ${extensionId}`);
   console.log(`PASS generated ${candidateCount} strictly unique candidate cards`);
   console.log("PASS highlighted exactly one live element");
-  console.log("PASS grouped, collapsed, and renamed website folder and element");
+  console.log("PASS current-page-first URL accordion with pen-icon website and element renaming");
   console.log(`PASS saved selector reload test: ${savedStatus}`);
   console.log(`PASS screenshots written to ${screenshotsDirectory}`);
 

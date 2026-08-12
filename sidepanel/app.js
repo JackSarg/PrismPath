@@ -9,7 +9,9 @@ const state = {
   selection: null,
   saved: [],
   websites: {},
-  collapsedWebsites: new Set(),
+  expandedWebsiteKey: "",
+  editingWebsiteKey: "",
+  editingElementId: "",
   currentView: "generated",
   identifying: false,
   retesting: false,
@@ -68,10 +70,7 @@ function bindEvents() {
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.tab)));
   elements.generatedContent.addEventListener("click", onGeneratedAction);
   elements.savedContent.addEventListener("click", onSavedAction);
-  elements.savedContent.addEventListener("change", onSavedChange);
-  elements.savedContent.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && event.target.matches(".website-name, .saved-name")) event.target.blur();
-  });
+  elements.savedContent.addEventListener("keydown", onSavedKeyDown);
   elements.savedSearch.addEventListener("input", () => {
     state.search = elements.savedSearch.value.trim().toLowerCase();
     renderSaved();
@@ -307,7 +306,6 @@ async function saveCandidate(candidate) {
   };
   state.saved.unshift(saved);
   ensureWebsiteForSelector(saved);
-  state.collapsedWebsites.delete(saved.pageUrlBase);
   await persistSaved();
   renderSaved();
   renderCounts();
@@ -343,7 +341,9 @@ function renderSaved() {
 }
 
 function websiteFolder(website) {
-  const collapsed = state.collapsedWebsites.has(website.key);
+  const expanded = state.expandedWebsiteKey === website.key;
+  const editing = state.editingWebsiteKey === website.key;
+  const isCurrentPage = website.key === state.activeTab?.urlBase;
   const validCount = website.selectors.filter((item) => item.lastStatus === "valid").length;
   const attentionCount = website.selectors.filter((item) => ["missing", "multiple", "invalid"].includes(item.lastStatus)).length;
   const statusText = attentionCount
@@ -352,23 +352,37 @@ function websiteFolder(website) {
       ? "All passing"
       : `${website.selectors.length} saved`;
   return `
-    <section class="website-folder ${collapsed ? "is-collapsed" : ""}" data-website-key="${escapeAttribute(website.key)}">
+    <section class="website-folder ${expanded ? "is-expanded" : "is-collapsed"} ${isCurrentPage ? "is-current" : ""}" data-website-key="${escapeAttribute(website.key)}">
       <div class="website-header">
-        <button class="website-toggle" type="button" data-action="toggle-website" data-website-key="${escapeAttribute(website.key)}" aria-expanded="${String(!collapsed)}" aria-label="${collapsed ? "Open" : "Close"} ${escapeAttribute(website.name)} folder">
-          <svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>
-          <svg class="folder-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
-        </button>
-        <label class="website-identity">
-          <span class="sr-only">Website folder name</span>
-          <input class="website-name" data-action="rename-website" data-website-key="${escapeAttribute(website.key)}" value="${escapeAttribute(website.name)}" aria-label="Website folder name">
-          <span class="website-url">${escapeHtml(readableUrl(website.url))}</span>
-        </label>
+        ${editing
+          ? `<div class="website-editing">
+              <span class="folder-mark">${folderIcon()}</span>
+              <label class="website-edit-field">
+                <span class="sr-only">Website name</span>
+                <input class="website-name" data-editor="website" data-website-key="${escapeAttribute(website.key)}" value="${escapeAttribute(website.name)}" aria-label="Website name">
+                <span class="website-url">${escapeHtml(readableUrl(website.url))}</span>
+              </label>
+            </div>`
+          : `<button class="website-open" type="button" data-action="toggle-website" data-website-key="${escapeAttribute(website.key)}" aria-expanded="${String(expanded)}">
+              <span class="folder-mark">${folderIcon()}${chevronIcon()}</span>
+              <span class="website-identity">
+                <strong>${escapeHtml(website.name)}</strong>
+                <span class="website-url">${escapeHtml(readableUrl(website.url))}</span>
+              </span>
+            </button>`}
+        <div class="website-edit-actions">
+          ${editing
+            ? `<button class="edit-icon-button confirm" type="button" data-action="save-website-name" data-website-key="${escapeAttribute(website.key)}" aria-label="Save website name" title="Save website name">${checkIcon()}</button>
+               <button class="edit-icon-button" type="button" data-action="cancel-website-name" aria-label="Cancel website rename" title="Cancel">${closeIcon()}</button>`
+            : `<button class="edit-icon-button" type="button" data-action="edit-website-name" data-website-key="${escapeAttribute(website.key)}" aria-label="Rename ${escapeAttribute(website.name)}" title="Rename website">${penIcon()}</button>`}
+        </div>
         <div class="website-totals">
+          ${isCurrentPage ? '<em class="current-page-badge">Current</em>' : ""}
           <strong>${website.selectors.length}</strong>
           <span>${escapeHtml(statusText)}</span>
         </div>
       </div>
-      <div class="website-elements" ${collapsed ? "hidden" : ""}>
+      <div class="website-elements" ${expanded ? "" : "hidden"}>
         ${website.selectors.map(savedCard).join("")}
       </div>
     </section>`;
@@ -376,15 +390,25 @@ function websiteFolder(website) {
 
 function savedCard(item) {
   const status = item.lastStatus || "untested";
+  const editing = state.editingElementId === item.id;
   const statusLabel = status === "valid" ? "1 match" : status === "multiple" ? `${item.lastCount || 2} matches` : status;
   const context = item.frameIsFrame ? `Iframe · ${readableUrl(item.frameUrl)}` : item.elementSummary || "Saved web element";
   return `
     <article class="saved-card" data-id="${item.id}">
       <div class="card-head">
-        <label class="element-name-field">
+        <div class="element-name-field">
           <span class="element-label">Element</span>
-          <input class="saved-name" data-action="rename-element" data-id="${item.id}" value="${escapeAttribute(item.name)}" aria-label="Saved element name">
-        </label>
+          ${editing
+            ? `<div class="element-editing">
+                <input class="saved-name" data-editor="element" data-id="${item.id}" value="${escapeAttribute(item.name)}" aria-label="Element name">
+                <button class="edit-icon-button confirm" type="button" data-action="save-element-name" data-id="${item.id}" aria-label="Save element name" title="Save element name">${checkIcon()}</button>
+                <button class="edit-icon-button" type="button" data-action="cancel-element-name" aria-label="Cancel element rename" title="Cancel">${closeIcon()}</button>
+              </div>`
+            : `<div class="element-name-row">
+                <strong>${escapeHtml(item.name)}</strong>
+                <button class="edit-icon-button" type="button" data-action="edit-element-name" data-id="${item.id}" aria-label="Rename ${escapeAttribute(item.name)}" title="Rename element">${penIcon()}</button>
+              </div>`}
+        </div>
         <span class="status-pill ${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
       </div>
       <div class="saved-context">${escapeHtml(context)}</div>
@@ -411,8 +435,43 @@ async function onSavedAction(event) {
   if (!button) return;
   if (button.dataset.action === "toggle-website") {
     const websiteKey = button.dataset.websiteKey;
-    if (state.collapsedWebsites.has(websiteKey)) state.collapsedWebsites.delete(websiteKey);
-    else state.collapsedWebsites.add(websiteKey);
+    state.expandedWebsiteKey = state.expandedWebsiteKey === websiteKey ? "" : websiteKey;
+    state.editingWebsiteKey = "";
+    state.editingElementId = "";
+    renderSaved();
+    return;
+  }
+  if (button.dataset.action === "edit-website-name") {
+    state.editingWebsiteKey = button.dataset.websiteKey;
+    state.editingElementId = "";
+    renderSaved();
+    focusActiveEditor();
+    return;
+  }
+  if (button.dataset.action === "save-website-name") {
+    const input = button.closest(".website-header")?.querySelector("[data-editor=website]");
+    await saveWebsiteName(button.dataset.websiteKey, input?.value);
+    return;
+  }
+  if (button.dataset.action === "cancel-website-name") {
+    state.editingWebsiteKey = "";
+    renderSaved();
+    return;
+  }
+  if (button.dataset.action === "edit-element-name") {
+    state.editingElementId = button.dataset.id;
+    state.editingWebsiteKey = "";
+    renderSaved();
+    focusActiveEditor();
+    return;
+  }
+  if (button.dataset.action === "save-element-name") {
+    const input = button.closest(".saved-card")?.querySelector("[data-editor=element]");
+    await saveElementName(button.dataset.id, input?.value);
+    return;
+  }
+  if (button.dataset.action === "cancel-element-name") {
+    state.editingElementId = "";
     renderSaved();
     return;
   }
@@ -435,26 +494,48 @@ async function onSavedAction(event) {
   }
 }
 
-async function onSavedChange(event) {
-  if (event.target.dataset.action === "rename-element") {
-    const item = state.saved.find((selector) => selector.id === event.target.dataset.id);
-    if (!item) return;
-    item.name = event.target.value.trim().slice(0, 180) || "Unnamed element";
-    await persistSaved();
-    event.target.value = item.name;
-    showToast("Element name updated.", "success");
-    return;
+async function onSavedKeyDown(event) {
+  if (!event.target.matches("[data-editor=website], [data-editor=element]")) return;
+  if (event.key === "Enter") {
+    event.preventDefault();
+    if (event.target.dataset.editor === "website") await saveWebsiteName(event.target.dataset.websiteKey, event.target.value);
+    else await saveElementName(event.target.dataset.id, event.target.value);
   }
-  if (event.target.dataset.action === "rename-website") {
-    const websiteKey = event.target.dataset.websiteKey;
-    const website = state.websites[websiteKey];
-    if (!website) return;
-    website.name = event.target.value.trim().slice(0, 180) || website.defaultName || "Unnamed website";
-    website.updatedAt = new Date().toISOString();
-    await persistSaved();
-    event.target.value = website.name;
-    showToast("Website folder renamed.", "success");
+  if (event.key === "Escape") {
+    event.preventDefault();
+    state.editingWebsiteKey = "";
+    state.editingElementId = "";
+    renderSaved();
   }
+}
+
+async function saveWebsiteName(websiteKey, value) {
+  const website = state.websites[websiteKey];
+  if (!website) return;
+  website.name = String(value || "").trim().slice(0, 180) || website.defaultName || "Unnamed website";
+  website.updatedAt = new Date().toISOString();
+  state.editingWebsiteKey = "";
+  await persistSaved();
+  renderSaved();
+  showToast("Website name updated.", "success");
+}
+
+async function saveElementName(id, value) {
+  const item = state.saved.find((selector) => selector.id === id);
+  if (!item) return;
+  item.name = String(value || "").trim().slice(0, 180) || "Unnamed element";
+  state.editingElementId = "";
+  await persistSaved();
+  renderSaved();
+  showToast("Element name updated.", "success");
+}
+
+function focusActiveEditor() {
+  requestAnimationFrame(() => {
+    const input = elements.savedContent.querySelector("[data-editor=website], [data-editor=element]");
+    input?.focus();
+    input?.select();
+  });
 }
 
 async function validateSaved(item, highlight) {
@@ -620,7 +701,9 @@ async function clearLibrary() {
   if (!confirm(`Delete all ${state.saved.length} saved selectors from this browser?`)) return;
   state.saved = [];
   state.websites = {};
-  state.collapsedWebsites.clear();
+  state.expandedWebsiteKey = "";
+  state.editingWebsiteKey = "";
+  state.editingElementId = "";
   await persistSaved();
   renderSaved();
   renderCounts();
@@ -807,6 +890,26 @@ function emptyState(title, message) {
 
 function targetIcon() {
   return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3m18 0v3a2 2 0 0 1-2 2h-3M8 12h8m-4-4v8"/></svg>';
+}
+
+function folderIcon() {
+  return '<svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.8c0-1 .8-1.8 1.8-1.8h4.1l2 2h7.3c1 0 1.8.8 1.8 1.8v8.4c0 1-.8 1.8-1.8 1.8H5.3c-1 0-1.8-.8-1.8-1.8V6.8Z"/></svg>';
+}
+
+function chevronIcon() {
+  return '<svg class="folder-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"/></svg>';
+}
+
+function penIcon() {
+  return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12.9 4.1 3 3M4 16l.8-3.6 8.8-8.8a1.4 1.4 0 0 1 2 0l.8.8a1.4 1.4 0 0 1 0 2l-8.8 8.8L4 16Z"/></svg>';
+}
+
+function checkIcon() {
+  return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10.2 3.6 3.6L16 5.5"/></svg>';
+}
+
+function closeIcon() {
+  return '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>';
 }
 
 function categoryLabel(category) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 — 2026-08-12
+
+- Reworked Saved into a compact webpage URL accordion that starts collapsed
+- Moved the active webpage to the top of the Saved list and marked it as Current
+- Replaced always-visible rename fields with subtle pen-icon editing for websites and elements
+- Added PrismPath website, GitHub, and LinkedIn links to the side-panel footer
+
 ## 1.1.0 — 2026-08-12
 
 - Grouped saved elements into collapsible webpage folders

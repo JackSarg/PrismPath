@@ -1,6 +1,6 @@
 {
   "name": "prismpath-xpath-assistant",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "A local Chrome and Edge extension for stable Blue Prism XPath generation and regression testing.",
   "scripts": {

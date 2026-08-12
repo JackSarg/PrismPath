@@ -25,7 +25,7 @@ Key capabilities:
 - Strict exactly-one-match validation
 - On-page red highlight for fresh visual verification
 - Persistent local selector library
-- Collapsible webpage folders with editable website and element names
+- Current-page-first URL accordion with pen-icon website and element renaming
 - Retest all selectors for the active page
 - Reload the page and rerun selector regression checks
 - Iframe-aware saved context

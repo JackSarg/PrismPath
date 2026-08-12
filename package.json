@@ -1,0 +1,13 @@
+{
+  "name": "prismpath-xpath-assistant",
+  "version": "1.1.0",
+  "private": true,
+  "description": "A local Chrome and Edge extension for stable Blue Prism XPath generation and regression testing.",
+  "scripts": {
+    "icons": "powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1",
+    "assets": "powershell -ExecutionPolicy Bypass -File scripts/generate-store-assets.ps1",
+    "test": "powershell -ExecutionPolicy Bypass -File scripts/test.ps1",
+    "test:integration": "node scripts/integration-test.mjs",
+    "package": "powershell -ExecutionPolicy Bypass -File scripts/package.ps1"
+  }
+}

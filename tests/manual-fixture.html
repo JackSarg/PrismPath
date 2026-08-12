@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PrismPath Manual Test Workbench</title>
+    <style>
+      :root { font-family: Inter, system-ui, sans-serif; color: #162536; background: #eef3f7; }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      header { padding: 36px clamp(20px, 7vw, 90px); color: white; background: linear-gradient(135deg, #081727, #123a50); }
+      header span { color: #5ce0ec; font-size: 12px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+      h1 { margin: 8px 0 6px; font-size: clamp(28px, 5vw, 48px); }
+      header p { max-width: 700px; margin: 0; color: #b9ced9; }
+      main { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; padding: 24px clamp(20px, 7vw, 90px) 70px; }
+      section { padding: 22px; border: 1px solid #d4e0e8; border-radius: 14px; background: white; box-shadow: 0 10px 30px rgba(33,58,78,.07); }
+      h2 { margin: 0 0 5px; font-size: 18px; }
+      section > p { margin: 0 0 18px; color: #637687; font-size: 13px; line-height: 1.5; }
+      .field { display: grid; gap: 6px; margin-top: 14px; }
+      label, legend { font-size: 12px; font-weight: 720; }
+      input, select, textarea { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #b9cad5; border-radius: 8px; background: #fbfdfe; color: #17283a; }
+      input:focus, select:focus, textarea:focus { outline: 3px solid rgba(27,183,210,.17); border-color: #1bb7d2; }
+      .choice { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+      .choice input { width: 17px; min-height: 17px; }
+      button { min-height: 38px; padding: 8px 13px; border: 0; border-radius: 8px; background: #0c8fa8; color: white; cursor: pointer; font-weight: 720; }
+      button.secondary { border: 1px solid #b9cad5; background: #f5f8fa; color: #334b5e; }
+      .actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 17px; }
+      .status { min-height: 22px; margin-top: 12px; color: #18805f; font-size: 12px; font-weight: 680; }
+      fieldset { margin: 15px 0 0; padding: 12px; border: 1px solid #d2dee6; border-radius: 9px; }
+      iframe { width: 100%; height: 180px; border: 1px solid #b9cad5; border-radius: 9px; background: white; }
+      .deep-card { padding: 14px; border: 1px dashed #b7c8d4; border-radius: 8px; }
+      .deep-card div { padding: 4px; }
+      code { color: #08788d; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span>Local acceptance fixture</span>
+      <h1>PrismPath workbench</h1>
+      <p>Use this page to exercise common Blue Prism browser elements, volatile attributes, structural fallbacks, frames, and Shadow DOM safety.</p>
+    </header>
+    <main>
+      <section data-testid="customer-details-panel">
+        <h2>Customer details</h2>
+        <p>Stable automation attributes, names, labels, placeholders, and controls.</p>
+        <div class="field">
+          <label for="customer-email">Email address</label>
+          <input id="customer-email" data-testid="customer-email-input" name="email" type="email" autocomplete="email" placeholder="name@example.com">
+        </div>
+        <div class="field">
+          <label for="volatile-account">Account reference</label>
+          <input id="volatile-account" name="accountReference" type="text" aria-label="Account reference">
+        </div>
+        <div class="field">
+          <label for="country">Country</label>
+          <select id="country" name="country">
+            <option value="">Choose a country</option>
+            <option value="gb">United Kingdom</option>
+            <option value="ie">Ireland</option>
+            <option value="nl">Netherlands</option>
+          </select>
+        </div>
+        <fieldset>
+          <legend>Contact preferences</legend>
+          <label class="choice"><input name="emailUpdates" type="checkbox"> Receive email updates</label>
+          <label class="choice"><input name="contactRoute" value="phone" type="radio"> Phone</label>
+          <label class="choice"><input name="contactRoute" value="email" type="radio"> Email</label>
+        </fieldset>
+        <div class="actions">
+          <button data-automation-id="save-customer" type="button">Save customer</button>
+          <button class="secondary" type="reset">Reset form</button>
+        </div>
+      </section>
+
+      <section aria-labelledby="relationship-heading">
+        <h2 id="relationship-heading">Relationship selectors</h2>
+        <p>These controls rely on labels, siblings, text, and a stable section anchor.</p>
+        <div class="field">
+          <label for="generated-order">Order number</label>
+          <input id="generated-order" type="text">
+        </div>
+        <div class="field">
+          <span id="notes-label">Processing notes</span>
+          <textarea aria-labelledby="notes-label" rows="3"></textarea>
+        </div>
+        <div class="actions">
+          <button type="button">Approve order</button>
+          <button class="secondary" type="button">Reject order</button>
+        </div>
+        <div id="relationship-status" class="status" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <h2>Structural fallback</h2>
+        <p>The innermost plain element has no useful attributes or text and should fall back to anchored or long-form structure.</p>
+        <div class="deep-card">
+          <div><div><div><span aria-hidden="true"></span></div></div></div>
+        </div>
+        <div class="actions">
+          <button id="insert-wrapper" class="secondary" type="button">Insert wrapper above target</button>
+        </div>
+        <div id="structure-status" class="status"></div>
+      </section>
+
+      <section>
+        <h2>Iframe context</h2>
+        <p>Select elements inside this frame to verify frame-scoped saving and retesting.</p>
+        <iframe title="Payment details test frame" srcdoc="<!doctype html><html><body style='font-family:system-ui;padding:18px'><label for='cardholder'>Cardholder name</label><input id='cardholder' name='cardholder' style='display:block;width:100%;margin:7px 0 14px;padding:8px'><button data-testid='confirm-payment' style='padding:8px 12px'>Confirm payment</button></body></html>"></iframe>
+      </section>
+
+      <section>
+        <h2>Shadow DOM boundary</h2>
+        <p>Selecting the button inside the open shadow root should produce an explicit warning and no unsafe XPath.</p>
+        <div id="shadow-host"></div>
+      </section>
+    </main>
+    <script>
+      const volatile = document.querySelector("#volatile-account");
+      volatile.id = `react-select-${Date.now()}-${Math.floor(Math.random() * 100000)}-input`;
+      const order = document.querySelector("#generated-order");
+      order.id = `field-${crypto.randomUUID()}`;
+      document.querySelector("label[for='generated-order']").htmlFor = order.id;
+
+      document.querySelectorAll("button").forEach(button => {
+        if (button.id === "insert-wrapper") return;
+        button.addEventListener("click", () => {
+          const status = document.querySelector("#relationship-status");
+          if (status) status.textContent = `${button.textContent.trim()} clicked successfully.`;
+        });
+      });
+
+      document.querySelector("#insert-wrapper").addEventListener("click", () => {
+        const target = document.querySelector(".deep-card span");
+        const wrapper = document.createElement("div");
+        target.replaceWith(wrapper);
+        wrapper.appendChild(target);
+        document.querySelector("#structure-status").textContent = "A new wrapper was inserted; positional paths should now fail.";
+      });
+
+      const shadow = document.querySelector("#shadow-host").attachShadow({ mode: "open" });
+      shadow.innerHTML = `<style>button{padding:10px 14px;border:0;border-radius:8px;background:#7d4fd0;color:white;font-weight:700}</style><button data-testid="shadow-action">Shadow-only action</button>`;
+    </script>
+  </body>
+</html>

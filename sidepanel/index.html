@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PrismPath XPath Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <img src="../icons/icon-48.png" width="34" height="34" alt="">
+        <div>
+          <div class="brand-name">PrismPath</div>
+          <div class="brand-subtitle">XPath Assistant</div>
+        </div>
+      </div>
+      <span class="local-badge" title="No analytics or network requests">Local only</span>
+    </header>
+
+    <div id="page-context" class="page-context" aria-live="polite">
+      <span class="context-dot"></span>
+      <div class="context-copy">
+        <strong>Checking active page…</strong>
+        <span></span>
+      </div>
+    </div>
+
+    <main>
+      <section class="identify-panel" aria-labelledby="identify-title">
+        <div>
+          <span class="eyebrow">Step 1</span>
+          <h1 id="identify-title">Choose the web element</h1>
+          <p>Click Identify, then click the same element you spied in Blue Prism.</p>
+        </div>
+        <button id="identify-button" class="button button-primary identify-button" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4m12-6h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4m18 0v4a2 2 0 0 1-2 2h-4M8 12h8m-4-4v8"/></svg>
+          <span>Identify element</span>
+        </button>
+        <div id="capture-hint" class="capture-hint" hidden>
+          <span class="capture-pulse"></span>
+          Selection is active on the page. Press Esc to cancel.
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="XPath views">
+        <button class="tab is-active" type="button" data-tab="generated" aria-selected="true">
+          Generated <span id="generated-count" class="tab-count">0</span>
+        </button>
+        <button class="tab" type="button" data-tab="saved" aria-selected="false">
+          Saved <span id="saved-count" class="tab-count">0</span>
+        </button>
+      </nav>
+
+      <section id="generated-view" class="view" aria-label="Generated XPath candidates">
+        <div id="generated-content"></div>
+      </section>
+
+      <section id="saved-view" class="view" aria-label="Saved XPath selectors" hidden>
+        <div class="saved-toolbar">
+          <label class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <span class="sr-only">Search saved selectors</span>
+            <input id="saved-search" type="search" placeholder="Search websites or elements">
+          </label>
+          <div class="toolbar-row">
+            <button id="retest-button" class="button button-secondary button-small" type="button">Retest page</button>
+            <button id="reload-retest-button" class="button button-secondary button-small" type="button">Reload + retest</button>
+          </div>
+          <details class="share-tools">
+            <summary>Share or manage library</summary>
+            <div class="share-actions">
+              <button id="copy-library-button" class="text-button" type="button">Copy library JSON</button>
+              <button id="import-button" class="text-button" type="button">Import JSON</button>
+              <button id="clear-library-button" class="text-button danger-text" type="button">Delete all</button>
+            </div>
+          </details>
+        </div>
+        <div id="saved-content"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Blue Prism 7.4.1 primary</span>
+      <span aria-hidden="true">·</span>
+      <span>6.9+ XPath</span>
+      <span aria-hidden="true">·</span>
+      <span>6.8 legacy path</span>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <dialog id="import-dialog">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-header">
+          <div>
+            <span class="eyebrow">Local import</span>
+            <h2>Import selector library</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close import dialog" type="submit">×</button>
+        </div>
+        <p>Paste PrismPath JSON from a co-worker, or choose a JSON file. Existing selectors are kept and duplicates are skipped.</p>
+        <textarea id="import-json" rows="9" spellcheck="false" placeholder='{ "schema": "prismpath-library", … }'></textarea>
+        <label class="file-picker">
+          <span>Choose JSON file</span>
+          <input id="import-file" type="file" accept="application/json,.json">
+        </label>
+        <div class="dialog-actions">
+          <button class="button button-secondary" value="cancel" type="submit">Cancel</button>
+          <button id="confirm-import-button" class="button button-primary" value="default" type="button">Import selectors</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>

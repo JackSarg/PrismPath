@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="PrismPath icon">
+  <defs>
+    <linearGradient id="bg" x1="18" y1="12" x2="112" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12314a"/>
+      <stop offset="1" stop-color="#071421"/>
+    </linearGradient>
+    <linearGradient id="line" x1="25" y1="28" x2="103" y2="99" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#63e3f2"/>
+      <stop offset="1" stop-color="#18b7d2"/>
+    </linearGradient>
+  </defs>
+  <rect x="5" y="5" width="118" height="118" rx="28" fill="url(#bg)" stroke="#244b65" stroke-width="4"/>
+  <path d="M51 31 26 64l25 33M77 31l25 33-25 33" fill="none" stroke="url(#line)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="64" cy="64" r="8" fill="#45d7a2" stroke="#e9ffff" stroke-width="3"/>
+</svg>

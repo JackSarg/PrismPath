@@ -1,0 +1,9 @@
+# Generated extension packages
+dist/
+*.zip
+
+# Local development noise
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

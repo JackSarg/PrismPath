@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>PrismPath engine tests</title></head>
+  <body>
+    <main id="fixtures">
+      <form data-testid="customer-form">
+        <label for="user-email">Email address</label>
+        <input id="user-email" name="email" type="email">
+      </form>
+
+      <input id="react-select-123456789-input" name="accountSearch" type="search">
+      <button data-testid="save-order" type="button">Save order</button>
+
+      <div><label for="field-550e8400-e29b-41d4-a716-446655440000">Customer reference</label><input id="field-550e8400-e29b-41d4-a716-446655440000" type="text"></div>
+
+      <section data-testid="billing-panel"><div><input class="field control" placeholder="Postcode"></div></section>
+      <section><input class="field control" placeholder="Postcode"></section>
+
+      <button class="action primary" type="button">Approve invoice</button>
+      <button class="action primary" type="button">Reject invoice</button>
+      <button title="Jack's &quot;special&quot; action" type="button">Quoted title</button>
+    </main>
+    <pre id="result" data-status="running">Running…</pre>
+    <script src="../src/xpath-engine.js"></script>
+    <script>
+      (() => {
+        const tests = [];
+        const assert = (condition, message) => { if (!condition) throw new Error(message); };
+        const test = (name, body) => tests.push({ name, body });
+        const allResolveExactly = (result, target) => result.candidates
+          .filter(candidate => candidate.category !== "legacy")
+          .every(candidate => {
+            const matches = PrismPathEngine.evaluate(candidate.validationXPath, document);
+            return matches.length === 1 && matches[0] === target;
+          });
+
+        test("stable id is recommended", () => {
+          const target = document.querySelector("#user-email");
+          const result = PrismPathEngine.generate(target);
+          assert(result.candidates[0].xpath === "//*[@id='user-email']", "Stable id was not ranked first");
+          assert(result.candidates[0].score >= 90, "Stable id score is too low");
+        });
+
+        test("volatile ids are ignored", () => {
+          const target = document.querySelector("[name='accountSearch']");
+          const result = PrismPathEngine.generate(target);
+          assert(!result.candidates.some(candidate => candidate.xpath.includes("react-select-123456789")), "Volatile id leaked into a candidate");
+          assert(result.candidates.some(candidate => candidate.xpath.includes("@name='accountSearch'")), "Stable name candidate missing");
+        });
+
+        test("automation data attributes rank highly", () => {
+          const target = document.querySelector("[data-testid='save-order']");
+          const result = PrismPathEngine.generate(target);
+          assert(result.candidates.some(candidate => candidate.xpath.includes("@data-testid='save-order'") && candidate.score >= 90), "Test id candidate missing");
+        });
+
+        test("label relationships are generated", () => {
+          const target = document.querySelector("#field-550e8400-e29b-41d4-a716-446655440000");
+          const result = PrismPathEngine.generate(target);
+          assert(result.candidates.some(candidate => candidate.category === "relationship" && candidate.xpath.includes("Customer reference")), "Label candidate missing");
+          assert(!result.candidates.some(candidate => candidate.xpath.includes("550e8400")), "Prefixed UUID leaked into a candidate");
+        });
+
+        test("stable ancestors scope duplicate controls", () => {
+          const target = document.querySelector("[data-testid='billing-panel'] input");
+          const result = PrismPathEngine.generate(target);
+          assert(result.candidates.some(candidate => candidate.category === "anchored" && candidate.xpath.includes("billing-panel")), "Anchored candidate missing");
+        });
+
+        test("every offered XPath is unique to the target", () => {
+          const target = Array.from(document.querySelectorAll("button.action")).find(button => button.textContent.includes("Approve"));
+          const result = PrismPathEngine.generate(target);
+          assert(result.candidates.length >= 2, "Not enough candidates were generated");
+          assert(allResolveExactly(result, target), "An offered XPath was not unique to the selected element");
+          assert(!result.candidates.some(candidate => candidate.xpath === "//BUTTON[@type='button']"), "Ambiguous type-only XPath was offered");
+        });
+
+        test("XPath literals support both quote types", () => {
+          const target = document.querySelector("[title*=\"special\"]");
+          const result = PrismPathEngine.generate(target);
+          const titleCandidate = result.candidates.find(candidate => candidate.xpath.includes("@title"));
+          assert(titleCandidate && titleCandidate.xpath.includes("concat("), "Mixed-quote XPath literal did not use concat");
+          assert(PrismPathEngine.evaluate(titleCandidate.xpath, document)[0] === target, "Mixed-quote XPath did not resolve");
+        });
+
+        test("absolute and Blue Prism 6.8 legacy paths are included", () => {
+          const target = document.querySelector("#user-email");
+          const result = PrismPathEngine.generate(target);
+          assert(result.candidates.some(candidate => candidate.category === "absolute" && candidate.xpath.startsWith("/HTML[1]/BODY[1]")), "Absolute XPath missing");
+          assert(result.candidates.some(candidate => candidate.category === "legacy" && candidate.xpath.startsWith("HTML/BODY(1)")), "Legacy Web Path missing");
+        });
+
+        test("Shadow DOM returns an explicit unsupported result", () => {
+          const host = document.createElement("div");
+          document.body.appendChild(host);
+          const shadow = host.attachShadow({ mode: "open" });
+          const button = document.createElement("button");
+          shadow.appendChild(button);
+          const result = PrismPathEngine.generate(button);
+          assert(result.unsupported === "shadow-dom", "Shadow DOM was not detected");
+          assert(result.candidates.length === 0, "Unsafe Shadow DOM candidate was returned");
+        });
+
+        const output = document.querySelector("#result");
+        const lines = [];
+        let failed = 0;
+        for (const item of tests) {
+          try {
+            item.body();
+            lines.push(`PASS ${item.name}`);
+          } catch (error) {
+            failed += 1;
+            lines.push(`FAIL ${item.name}: ${error.message}`);
+          }
+        }
+        output.textContent = `${tests.length - failed}/${tests.length} passed\n${lines.join("\n")}`;
+        output.dataset.status = failed ? "failed" : "passed";
+        document.title = failed ? "FAILED PrismPath engine tests" : "PASSED PrismPath engine tests";
+      })();
+    </script>
+  </body>
+</html>

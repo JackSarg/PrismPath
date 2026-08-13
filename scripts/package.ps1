@@ -25,6 +25,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "src") -Destination $stageDirecto
 Copy-Item -LiteralPath (Join-Path $projectRoot "sidepanel") -Destination $stageDirectory -Recurse
 New-Item -ItemType Directory -Force -Path (Join-Path $stageDirectory "icons") | Out-Null
 Copy-Item -Path (Join-Path $projectRoot "icons\*.png") -Destination (Join-Path $stageDirectory "icons")
+Copy-Item -LiteralPath (Join-Path $projectRoot "icons\icon-source.svg") -Destination (Join-Path $stageDirectory "icons")
 
 $manifest = Get-Content -Raw -LiteralPath (Join-Path $projectRoot "manifest.json") | ConvertFrom-Json
 $archivePath = Join-Path $distDirectory "PrismPath-v$($manifest.version).zip"

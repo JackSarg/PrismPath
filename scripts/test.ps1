@@ -13,6 +13,7 @@ $runtimeFiles = @(
     "sidepanel/index.html",
     "sidepanel/styles.css",
     "sidepanel/app.js",
+    "icons/icon-source.svg",
     "icons/icon-16.png",
     "icons/icon-32.png",
     "icons/icon-48.png",

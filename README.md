@@ -12,7 +12,7 @@ The extension never sends page data, selectors, or usage information anywhere. A
 4. Click the same element on the page.
 5. Review the ranked XPath alternatives. Every offered candidate matched the exact selected element once when generated.
 6. Use **Highlight** for a fresh one-match check, then **Copy** the XPath into Blue Prism's **Web Path/XPath** attribute.
-7. Save important selectors and use **Reload + retest** after page changes.
+7. Save important selectors and use **Retest page** or **Reload + retest** after page changes. Matching elements are outlined in red and labeled with their saved element names.
 
 ## What it generates
 
@@ -25,6 +25,7 @@ The extension never sends page data, selectors, or usage information anywhere. A
 - Class-token expressions that do not depend on class ordering
 - A full absolute XPath as an explicitly fragile fallback
 - A legacy structural Web Path for Blue Prism 6.8
+- A persistent compatibility toggle for showing or hiding the Blue Prism 6.8 legacy option
 
 Expressions use conservative XPath 1.0 features supported by Chromium's native XPath evaluator. Likely GUIDs, timestamps, hashes, framework-generated IDs, long numeric suffixes, and generated class tokens are excluded.
 
@@ -38,7 +39,7 @@ Expressions use conservative XPath 1.0 features supported by Chromium's native X
 | Google Chrome | Manifest V3, version 114 or later |
 | Microsoft Edge | Manifest V3, version 114 or later |
 
-Blue Prism 6.9 introduced the ability to enter XPath expressions in the renamed **Web Path/XPath** attribute. For that reason, PrismPath labels modern expressions as **Blue Prism 6.9+**. The 6.8 candidate uses the documented structural form such as `HTML/BODY(1)/TABLE(4)` and is clearly marked as legacy.
+Blue Prism 6.9 introduced the ability to enter XPath expressions in the renamed **Web Path/XPath** attribute. For that reason, PrismPath labels modern expressions as **Blue Prism 6.9+**. The 6.8 candidate uses the documented structural form such as `HTML/BODY(1)/TABLE(4)` and is clearly marked as legacy. Users who only target Blue Prism 6.9 or later can hide that legacy option with the version toggle in the Generated view.
 
 Official references:
 
@@ -82,10 +83,10 @@ Saved entries are automatically organised into a compact, collapsed list of webp
 
 Saved entries retain the page path and iframe context in which they were captured. On the relevant page:
 
-- **Retest page** validates every saved selector for that page without reloading.
-- **Reload + retest** reloads the active tab, waits for it to finish, and then validates every saved selector.
+- **Retest page** validates every saved selector for that page without reloading, then labels every found element in red with its saved name.
+- **Reload + retest** reloads the active tab, waits for it to finish, and then validates and labels every saved selector.
 - A pass requires exactly one match. Zero matches and multiple matches are both failures.
-- **Highlight** draws a red box around a single match. When there are multiple matches, all available matches are boxed and the side panel reports an error.
+- **Highlight** and an individual saved-selector **Retest** draw a named red box around a single match. When there are multiple matches, all available matches are boxed, numbered, and reported as an error.
 
 The library can be copied as JSON and pasted into another PrismPath installation. Website folder names are included. Imports merge with existing entries and skip duplicates.
 
@@ -113,10 +114,14 @@ No runtime packages or remote assets are used.
 ```powershell
 npm run icons
 npm test
+npm run test:integration
+npm run assets
 npm run package
 ```
 
 `npm test` validates the manifest and runtime files, checks JavaScript syntax when Node.js is available, then runs the XPath engine suite inside an installed Chrome or Edge browser.
+
+`npm run test:integration` refreshes the live extension screenshots. `npm run assets` regenerates and dimension-checks the canonical Chrome Web Store and Microsoft Edge Add-ons artwork under `store/`; see [store/ASSETS.md](store/ASSETS.md) for each store's upload map.
 
 `npm run package` regenerates icons, runs all checks, and creates a Chrome/Edge submission archive under `dist/`.
 

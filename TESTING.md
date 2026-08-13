@@ -31,8 +31,9 @@ The integration test launches an isolated Edge/Chrome profile, loads the extensi
 8. Save several candidates, refresh the page, and run **Retest page**.
 9. Run **Reload + retest** and confirm the results update after load.
 10. Deliberately change a saved XPath to an ambiguous expression via exported/imported JSON and confirm the extension reports multiple matches.
-11. Copy the library JSON, clear the library, import it again, and confirm entries return without duplication.
-12. Repeat inside a same-origin and cross-origin iframe test page.
+11. Run **Retest page** with multiple saved selectors and confirm every found element has a red outline labeled with its saved element name.
+12. Copy the library JSON, clear the library, import it again, and confirm entries return without duplication.
+13. Repeat inside a same-origin and cross-origin iframe test page.
 
 ## Blue Prism acceptance matrix
 

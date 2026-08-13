@@ -120,6 +120,18 @@ try {
   if (JSON.stringify(footerLinks) !== JSON.stringify(expectedFooterLinks)) {
     throw new Error(`Unexpected footer links: ${JSON.stringify(footerLinks)}`);
   }
+  const headerLinks = await evaluate(panel, "[...document.querySelectorAll('.header-links a')].map(link => link.href)");
+  const expectedHeaderLinks = [
+    "https://github.com/JackSarg/PrismPath",
+    "https://www.linkedin.com/in/jacksarg/",
+    "https://buymeacoffee.com/jacksarg"
+  ];
+  if (JSON.stringify(headerLinks) !== JSON.stringify(expectedHeaderLinks)) {
+    throw new Error(`Unexpected header links: ${JSON.stringify(headerLinks)}`);
+  }
+  if (await evaluate(panel, "Boolean(document.querySelector('.local-badge'))")) {
+    throw new Error("The removed Local only badge is still present.");
+  }
   const fixtureTabId = await evaluate(panel, `chrome.tabs.create({url:${JSON.stringify(fixtureUrl)},active:true}).then(tab => tab.id)`);
   const fixtureTarget = await waitForTarget(debuggerBase, fixtureUrl);
   const fixture = new CdpClient(fixtureTarget.webSocketDebuggerUrl);
@@ -146,6 +158,25 @@ try {
   if (candidateCount < 3 || uniqueBadges !== candidateCount) {
     throw new Error(`Expected each of ${candidateCount} candidates to carry strict uniqueness evidence; found ${uniqueBadges}.`);
   }
+  const legacyCount = Number(await evaluate(panel, "Array.from(document.querySelectorAll('.candidate-card')).filter(card => card.textContent.includes('Blue Prism 6.8')).length"));
+  if (legacyCount !== 1) throw new Error(`Expected one visible Blue Prism 6.8 legacy candidate; found ${legacyCount}.`);
+  await evaluate(panel, `(() => {
+    const toggle = document.querySelector('#legacy-toggle');
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  await waitFor(async () => Number(await evaluate(panel, "document.querySelectorAll('.candidate-card').length")) === candidateCount - 1, 3000, "legacy selector filtering");
+  const hiddenLegacyCount = Number(await evaluate(panel, "Array.from(document.querySelectorAll('.candidate-card')).filter(card => card.textContent.includes('Blue Prism 6.8')).length"));
+  if (hiddenLegacyCount !== 0) throw new Error("The Blue Prism 6.8 candidate remained visible after disabling it.");
+  await waitFor(async () => (await evaluate(panel, `chrome.storage.local.get(${JSON.stringify("prismpathShowLegacyCandidates")})`)).prismpathShowLegacyCandidates === false, 3000, "legacy preference persistence");
+  await evaluate(panel, `(() => {
+    const toggle = document.querySelector('#legacy-toggle');
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  await waitFor(async () => Number(await evaluate(panel, "document.querySelectorAll('.candidate-card').length")) === candidateCount, 3000, "legacy selector restoration");
 
   await evaluate(panel, "document.querySelector('#toast').hidden = true; true");
   await setViewport(panel, 420, 800);
@@ -194,6 +225,18 @@ try {
     const keys = ['prismpathSavedWebsites', 'prismpathSavedSelectors'];
     const stored = await chrome.storage.local.get(keys);
     const original = stored.prismpathSavedSelectors[0];
+    const second = {
+      ...original,
+      id: 'save-customer-selector',
+      name: 'Save customer button',
+      xpath: "//BUTTON[@data-automation-id='save-customer']",
+      validationXPath: "//BUTTON[@data-automation-id='save-customer']",
+      elementSummary: '<button> — Save customer',
+      createdAt: new Date(Date.now() + 1000).toISOString(),
+      lastStatus: 'untested',
+      lastCount: 0,
+      lastTestedAt: ''
+    };
     const otherUrl = ${JSON.stringify(otherPageUrl)};
     const other = {
       ...original,
@@ -206,7 +249,7 @@ try {
       lastCount: 0,
       lastTestedAt: ''
     };
-    stored.prismpathSavedSelectors = [other, original];
+    stored.prismpathSavedSelectors = [other, second, original];
     stored.prismpathSavedWebsites[otherUrl] = {
       name: 'Another portal',
       defaultName: 'Another portal',
@@ -235,6 +278,14 @@ try {
   await waitFor(async () => !Boolean(await evaluate(panel, "document.querySelector('.website-folder .website-elements').hidden")), 3000, "current website folder expansion");
 
   await evaluate(panel, `chrome.tabs.update(${Number(fixtureTabId)}, {active:true}).then(() => true)`);
+  await evaluate(panel, "document.querySelector('#retest-button').click(); true");
+  await waitFor(async () => (await evaluate(panel, "document.querySelector('#retest-button').textContent")) === "Retest page", 5000, "bulk retest completion");
+  await waitFor(async () => Number(await evaluate(fixture, "document.querySelectorAll('[data-prismpath-match]').length")) === 2, 5000, "two named bulk retest markers");
+  const bulkMarkerLabels = await evaluate(fixture, "Array.from(document.querySelectorAll('[data-prismpath-match]')).map(marker => marker.dataset.prismpathLabel).sort()");
+  const expectedBulkMarkerLabels = ["Customer email field", "Save customer button"];
+  if (JSON.stringify(bulkMarkerLabels) !== JSON.stringify(expectedBulkMarkerLabels)) {
+    throw new Error(`Unexpected bulk retest marker labels: ${JSON.stringify(bulkMarkerLabels)}`);
+  }
   await evaluate(panel, "document.querySelector('#reload-retest-button').click(); true");
   await waitFor(async () => (await evaluate(panel, "document.querySelector('.saved-card .status-pill')?.textContent")) === "1 match", 15000, "reload and retest pass");
   await waitFor(async () => (await evaluate(panel, "document.querySelector('#retest-button').textContent")) === "Retest page", 5000, "retest completion");
@@ -245,6 +296,7 @@ try {
   console.log(`PASS extension loaded with id ${extensionId}`);
   console.log(`PASS generated ${candidateCount} strictly unique candidate cards`);
   console.log("PASS highlighted exactly one live element");
+  console.log(`PASS bulk retest labeled ${bulkMarkerLabels.length} matched elements with their saved names`);
   console.log("PASS current-page-first URL accordion with pen-icon website and element renaming");
   console.log(`PASS saved selector reload test: ${savedStatus}`);
   console.log(`PASS screenshots written to ${screenshotsDirectory}`);

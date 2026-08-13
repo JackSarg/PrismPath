@@ -87,7 +87,7 @@ The extension temporarily reads DOM attributes and text near the explicitly sele
 ## Submission checklist
 
 - [x] Manifest V3 package
-- [x] 16, 32, 48, and 128 pixel icons
+- [x] 16, 32, 48, and 128 pixel extension icons plus the recommended 300 pixel Edge listing logo
 - [x] No remotely hosted code or assets
 - [x] Privacy statement prepared
 - [x] Permission rationale prepared
@@ -95,6 +95,6 @@ The extension temporarily reads DOM attributes and text near the explicitly sele
 - [x] Chrome/Edge ZIP build script
 - [ ] Add the publisher's support email/URL to the store account and distribution page
 - [ ] Host `PRIVACY.md` at a public HTTPS URL if required by the chosen store/publisher account
-- [x] Two 1280×800 store screenshots and a 440×280 promotional tile
+- [x] Two 1280×800 store screenshots, a 440×280 promotional tile, and a 1400×560 marquee/large tile
 - [ ] Complete publisher identity and support URL fields
 - [ ] Perform hands-on Blue Prism 6.8, 6.9, and 7.4.1 Application Modeller verification

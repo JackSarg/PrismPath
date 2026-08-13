@@ -151,7 +151,13 @@ async function validateXPathOnActiveTab(message) {
     injections = await chrome.scripting.executeScript({
       target,
       func: evaluateAndHighlight,
-      args: [xpath, Boolean(message.highlight), scope.frameUrlBase || ""]
+      args: [
+        xpath,
+        Boolean(message.highlight),
+        scope.frameUrlBase || "",
+        String(message.highlightLabel || "").trim().slice(0, 180),
+        Boolean(message.preserveHighlights)
+      ]
     });
   } catch (error) {
     throw new Error(`Could not test this XPath: ${friendlyError(error)}`);
@@ -218,7 +224,7 @@ async function clearHighlightsOnActiveTab() {
   return { ok: true };
 }
 
-function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase) {
+function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase, highlightLabel, preserveHighlights) {
   const frameUrlBase = (() => {
     try {
       const url = new URL(location.href);
@@ -232,7 +238,9 @@ function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase) {
     return { skipped: true, href: location.href, frameUrlBase };
   }
 
-  document.querySelectorAll("[data-prismpath-match]").forEach((node) => node.remove());
+  if (!preserveHighlights) {
+    document.querySelectorAll("[data-prismpath-match]").forEach((node) => node.remove());
+  }
 
   let snapshot;
   try {
@@ -252,6 +260,15 @@ function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase) {
       const rect = element.getBoundingClientRect();
       const marker = document.createElement("div");
       marker.dataset.prismpathMatch = "true";
+      const savedName = String(highlightLabel || "").trim();
+      const markerLabel = savedName
+        ? elements.length === 1
+          ? savedName
+          : `${savedName} (${index + 1} of ${elements.length})`
+        : elements.length === 1
+          ? "PrismPath match"
+          : `Match ${index + 1} of ${elements.length}`;
+      marker.dataset.prismpathLabel = markerLabel;
       const styles = {
         position: "fixed",
         left: `${Math.max(0, rect.left - 3)}px`,
@@ -269,17 +286,22 @@ function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase) {
       Object.entries(styles).forEach(([name, value]) => marker.style.setProperty(name, value, "important"));
 
       const label = document.createElement("span");
-      label.textContent = elements.length === 1 ? "PrismPath match" : `Match ${index + 1} of ${elements.length}`;
+      label.textContent = markerLabel;
+      const alignRight = rect.left > window.innerWidth / 2;
       const labelStyles = {
         position: "absolute",
-        left: "-3px",
-        top: "-29px",
+        left: alignRight ? "auto" : "-3px",
+        right: alignRight ? "-3px" : "auto",
+        top: rect.top >= 32 ? "-29px" : "calc(100% + 5px)",
+        maxWidth: `${Math.max(120, Math.min(320, window.innerWidth - 16))}px`,
         padding: "4px 8px",
         borderRadius: "4px",
         background: "#e11435",
         color: "#ffffff",
         font: "600 12px/1.2 Arial, sans-serif",
         whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
         boxShadow: "0 2px 8px rgba(0,0,0,.2)"
       };
       Object.entries(labelStyles).forEach(([name, value]) => label.style.setProperty(name, value, "important"));

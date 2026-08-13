@@ -3,6 +3,7 @@
 const SAVED_KEY = "prismpathSavedSelectors";
 const SAVED_SITES_KEY = "prismpathSavedWebsites";
 const SESSION_SELECTION_KEY = "prismpathCurrentSelection";
+const SHOW_LEGACY_KEY = "prismpathShowLegacyCandidates";
 
 const state = {
   activeTab: null,
@@ -15,6 +16,7 @@ const state = {
   currentView: "generated",
   identifying: false,
   retesting: false,
+  showLegacyCandidates: true,
   search: ""
 };
 
@@ -24,6 +26,7 @@ const elements = {
   captureHint: document.querySelector("#capture-hint"),
   generatedCount: document.querySelector("#generated-count"),
   savedCount: document.querySelector("#saved-count"),
+  legacyToggle: document.querySelector("#legacy-toggle"),
   generatedView: document.querySelector("#generated-view"),
   savedView: document.querySelector("#saved-view"),
   generatedContent: document.querySelector("#generated-content"),
@@ -50,12 +53,14 @@ async function initialise() {
   try {
     const [context, localData, sessionData] = await Promise.all([
       sendMessage({ type: "PP_GET_ACTIVE_CONTEXT" }),
-      chrome.storage.local.get({ [SAVED_KEY]: [], [SAVED_SITES_KEY]: {} }),
+      chrome.storage.local.get({ [SAVED_KEY]: [], [SAVED_SITES_KEY]: {}, [SHOW_LEGACY_KEY]: true }),
       chrome.storage.session.get({ [SESSION_SELECTION_KEY]: null })
     ]);
     state.activeTab = context.ok ? context.tab : null;
     state.saved = Array.isArray(localData[SAVED_KEY]) ? localData[SAVED_KEY].map(normaliseStoredSelector).filter(Boolean) : [];
     state.websites = normaliseStoredWebsites(localData[SAVED_SITES_KEY]);
+    state.showLegacyCandidates = localData[SHOW_LEGACY_KEY] !== false;
+    elements.legacyToggle.checked = state.showLegacyCandidates;
     const migratedWebsites = ensureWebsitesForSelectors(state.saved);
     state.selection = sessionData[SESSION_SELECTION_KEY] || null;
     if (migratedWebsites) await persistSaved();
@@ -67,6 +72,7 @@ async function initialise() {
 
 function bindEvents() {
   elements.identifyButton.addEventListener("click", beginIdentify);
+  elements.legacyToggle.addEventListener("change", updateLegacyVisibility);
   document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.tab)));
   elements.generatedContent.addEventListener("click", onGeneratedAction);
   elements.savedContent.addEventListener("click", onSavedAction);
@@ -90,7 +96,7 @@ function bindEvents() {
       state.identifying = false;
       switchView("generated");
       renderAll();
-      showToast(`${message.selection.candidates?.length || 0} unique XPath variations generated.`, "success");
+      showToast(`${visibleCandidateEntries(message.selection).length} unique XPath variations generated.`, "success");
     }
     if (message.type === "PP_IDENTIFY_CANCELLED") {
       state.identifying = false;
@@ -156,7 +162,8 @@ function renderIdentifyState() {
 function renderGenerated() {
   const selection = state.selection;
   const samePage = selection && state.activeTab && selection.pageUrlBase === state.activeTab.urlBase;
-  elements.generatedCount.textContent = selection?.candidates?.length || 0;
+  const candidateEntries = visibleCandidateEntries(selection);
+  elements.generatedCount.textContent = candidateEntries.length;
 
   if (!selection) {
     elements.generatedContent.innerHTML = emptyState(
@@ -176,7 +183,7 @@ function renderGenerated() {
     return;
   }
 
-  const candidates = Array.isArray(selection.candidates) ? selection.candidates : [];
+  const candidates = candidateEntries.map((entry) => entry.candidate);
   const warnings = Array.isArray(selection.warnings) ? selection.warnings : [];
   const rejected = (selection.diagnostics?.ambiguous || 0) + (selection.diagnostics?.mismatched || 0) + (selection.diagnostics?.invalid || 0);
   const frameText = selection.frame?.isFrame
@@ -208,12 +215,12 @@ function renderGenerated() {
     return;
   }
 
-  elements.generatedContent.innerHTML = `${summary}<div class="candidate-list">${candidates
-    .map((candidate, index) => candidateCard(candidate, index))
+  elements.generatedContent.innerHTML = `${summary}<div class="candidate-list">${candidateEntries
+    .map((entry, index) => candidateCard(entry.candidate, index, entry.sourceIndex))
     .join("")}</div>`;
 }
 
-function candidateCard(candidate, index) {
+function candidateCard(candidate, index, sourceIndex) {
   const scoreClass = candidate.score >= 78 ? "" : candidate.score >= 62 ? "medium" : "fragile";
   const risks = candidate.risks?.length ? `<div class="risk-line">Watch: ${escapeHtml(candidate.risks.join(" · "))}</div>` : "";
   return `
@@ -234,11 +241,33 @@ function candidateCard(candidate, index) {
       <div class="card-explanation">${escapeHtml(candidate.explanation)}</div>
       ${risks}
       <div class="card-actions">
-        <button class="button button-primary button-small" type="button" data-action="copy" data-index="${index}">Copy</button>
-        <button class="button button-secondary button-small" type="button" data-action="highlight" data-index="${index}">Highlight</button>
-        <button class="button button-secondary button-small" type="button" data-action="save" data-index="${index}">Save</button>
+        <button class="button button-primary button-small" type="button" data-action="copy" data-index="${sourceIndex}">Copy</button>
+        <button class="button button-secondary button-small" type="button" data-action="highlight" data-index="${sourceIndex}">Highlight</button>
+        <button class="button button-secondary button-small" type="button" data-action="save" data-index="${sourceIndex}">Save</button>
       </div>
     </article>`;
+}
+
+async function updateLegacyVisibility() {
+  state.showLegacyCandidates = elements.legacyToggle.checked;
+  renderGenerated();
+  renderCounts();
+  try {
+    await chrome.storage.local.set({ [SHOW_LEGACY_KEY]: state.showLegacyCandidates });
+  } catch (error) {
+    showToast(error.message || "The Blue Prism version preference could not be saved.", "error");
+  }
+}
+
+function visibleCandidateEntries(selection) {
+  const candidates = Array.isArray(selection?.candidates) ? selection.candidates : [];
+  return candidates
+    .map((candidate, sourceIndex) => ({ candidate, sourceIndex }))
+    .filter(({ candidate }) => state.showLegacyCandidates || !isLegacyCandidate(candidate));
+}
+
+function isLegacyCandidate(candidate) {
+  return candidate?.category === "legacy" || candidate?.compatibility === "Blue Prism 6.8";
 }
 
 async function onGeneratedAction(event) {
@@ -482,8 +511,7 @@ async function onSavedAction(event) {
     await copyText(item.xpath);
     showToast("XPath copied to clipboard.", "success");
   }
-  if (action === "highlight") await validateSaved(item, true);
-  if (action === "retest") await validateSaved(item, false);
+  if (action === "highlight" || action === "retest") await validateSaved(item, true);
   if (action === "delete") {
     state.saved = state.saved.filter((selector) => selector.id !== item.id);
     pruneEmptyWebsites();
@@ -547,7 +575,8 @@ async function validateSaved(item, highlight) {
       type: "PP_VALIDATE_XPATH",
       xpath: item.validationXPath || item.xpath,
       scope: savedScope(item),
-      highlight
+      highlight,
+      highlightLabel: highlight ? item.name : ""
     });
     applyValidationResult(item, response);
     await persistSaved();
@@ -583,6 +612,7 @@ async function retestCurrentPage(reloadFirst) {
 
     for (const item of selectors) item.lastStatus = "testing";
     renderSaved();
+    await sendMessage({ type: "PP_CLEAR_HIGHLIGHTS" });
     let passed = 0;
     for (const item of selectors) {
       try {
@@ -590,7 +620,9 @@ async function retestCurrentPage(reloadFirst) {
           type: "PP_VALIDATE_XPATH",
           xpath: item.validationXPath || item.xpath,
           scope: savedScope(item),
-          highlight: false
+          highlight: true,
+          highlightLabel: item.name,
+          preserveHighlights: true
         });
         applyValidationResult(item, response);
         if (response.status === "valid") passed += 1;
@@ -603,7 +635,9 @@ async function retestCurrentPage(reloadFirst) {
     await persistSaved();
     const failed = selectors.length - passed;
     showToast(
-      failed ? `${passed} passed; ${failed} selector${failed === 1 ? "" : "s"} need attention.` : `All ${passed} selectors still resolve to exactly one element.`,
+      failed
+        ? `${passed} passed; ${failed} selector${failed === 1 ? "" : "s"} need attention. Found matches are labeled in red.`
+        : `All ${passed} selectors passed and are labeled in red on the page.`,
       failed ? "error" : "success"
     );
   } catch (error) {
@@ -880,7 +914,7 @@ function switchView(view) {
 }
 
 function renderCounts() {
-  elements.generatedCount.textContent = state.selection?.candidates?.length || 0;
+  elements.generatedCount.textContent = visibleCandidateEntries(state.selection).length;
   elements.savedCount.textContent = state.saved.length;
 }
 

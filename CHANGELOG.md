@@ -5,6 +5,7 @@
 - Added a persistent Generated-view toggle for hiding Blue Prism 6.8 legacy Web Paths
 - Replaced the header's Local only badge with GitHub, LinkedIn, and Buy Me a Coffee icon links
 - Added named red page markers for individual and bulk saved-selector retests
+- Promoted highlight markers into the browser top layer so page elements cannot cover them, while keeping element-name labels unclipped
 - Replaced the original chevron icon with the selected prism-framed locator identity and generated complete Chrome/Edge store artwork
 - Replaced the Step 1 card's abstract background square with a faded, angled PrismPath logo
 

@@ -269,17 +269,25 @@ function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase, high
           ? "PrismPath match"
           : `Match ${index + 1} of ${elements.length}`;
       marker.dataset.prismpathLabel = markerLabel;
+      const canUseTopLayer = typeof marker.showPopover === "function";
+      if (canUseTopLayer) marker.setAttribute("popover", "manual");
       const styles = {
         position: "fixed",
+        inset: "auto",
         left: `${Math.max(0, rect.left - 3)}px`,
         top: `${Math.max(0, rect.top - 3)}px`,
+        right: "auto",
+        bottom: "auto",
         width: `${Math.max(0, rect.width + 6)}px`,
         height: `${Math.max(0, rect.height + 6)}px`,
+        margin: "0",
+        padding: "0",
         border: "3px solid #ff334e",
         borderRadius: "5px",
         boxSizing: "border-box",
         background: "rgba(255, 51, 78, 0.08)",
         boxShadow: "0 0 0 2px rgba(255,255,255,.9), 0 8px 24px rgba(14,23,38,.28)",
+        overflow: "visible",
         pointerEvents: "none",
         zIndex: "2147483647"
       };
@@ -307,6 +315,13 @@ function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase, high
       Object.entries(labelStyles).forEach(([name, value]) => label.style.setProperty(name, value, "important"));
       marker.appendChild(label);
       (document.documentElement || document.body).appendChild(marker);
+      if (canUseTopLayer) {
+        try {
+          marker.showPopover();
+        } catch (_) {
+          marker.removeAttribute("popover");
+        }
+      }
       setTimeout(() => marker.remove(), 5000);
     });
   }

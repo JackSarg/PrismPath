@@ -183,8 +183,34 @@ try {
   await capture(panel, join(screenshotsDirectory, "sidepanel-generated.png"));
 
   await setViewport(fixture, 1280, 800);
+  const topLayerFixtureReady = await evaluate(fixture, `(() => {
+    const target = document.querySelector('[data-testid=customer-email-input]');
+    const rect = target.getBoundingClientRect();
+    const blocker = document.createElement('div');
+    blocker.id = 'prismpath-top-layer-test';
+    blocker.setAttribute('popover', 'manual');
+    Object.assign(blocker.style, {
+      position: 'fixed',
+      inset: 'auto',
+      left: rect.left + 'px',
+      top: rect.top + 'px',
+      width: rect.width + 'px',
+      height: rect.height + 'px',
+      margin: '0',
+      padding: '0',
+      border: '0',
+      background: '#17283a'
+    });
+    document.documentElement.appendChild(blocker);
+    blocker.showPopover();
+    return blocker.matches(':popover-open');
+  })()`);
+  if (!topLayerFixtureReady) throw new Error("Could not create the top-layer highlight regression fixture.");
   await evaluate(panel, "document.querySelector('button[data-action=highlight]').click(); true");
   await waitFor(async () => Number(await evaluate(fixture, "document.querySelectorAll('[data-prismpath-match]').length")) === 1, 6000, "one-match highlight");
+  const highlightUsesTopLayer = await evaluate(fixture, "document.querySelector('[data-prismpath-match]').matches(':popover-open')");
+  if (!highlightUsesTopLayer) throw new Error("The match highlight was not promoted above the page's top layer.");
+  await evaluate(fixture, "document.querySelector('#prismpath-top-layer-test').remove(); true");
   await capture(fixture, join(screenshotsDirectory, "fixture-highlight.png"));
 
   await evaluate(panel, "document.querySelector('button[data-action=save]').click(); true");
@@ -289,14 +315,28 @@ try {
   await evaluate(panel, "document.querySelector('#reload-retest-button').click(); true");
   await waitFor(async () => (await evaluate(panel, "document.querySelector('.saved-card .status-pill')?.textContent")) === "1 match", 15000, "reload and retest pass");
   await waitFor(async () => (await evaluate(panel, "document.querySelector('#retest-button').textContent")) === "Retest page", 5000, "retest completion");
+  await waitFor(async () => Number(await evaluate(fixture, "document.querySelectorAll('[data-prismpath-match]').length")) === 2, 5000, "reload and retest markers");
+  const reloadMarkerLabels = await evaluate(fixture, `Array.from(document.querySelectorAll('[data-prismpath-match]')).map(marker => ({
+    name: marker.dataset.prismpathLabel,
+    overflow: getComputedStyle(marker).overflow,
+    labelWidth: marker.querySelector('span')?.getBoundingClientRect().width || 0,
+    labelHeight: marker.querySelector('span')?.getBoundingClientRect().height || 0
+  })).sort((left, right) => left.name.localeCompare(right.name))`);
+  if (JSON.stringify(reloadMarkerLabels.map(marker => marker.name)) !== JSON.stringify(expectedBulkMarkerLabels)) {
+    throw new Error(`Unexpected Reload + retest marker labels: ${JSON.stringify(reloadMarkerLabels)}`);
+  }
+  if (reloadMarkerLabels.some(marker => marker.overflow !== "visible" || marker.labelWidth <= 0 || marker.labelHeight <= 0)) {
+    throw new Error(`Reload + retest labels were clipped or hidden: ${JSON.stringify(reloadMarkerLabels)}`);
+  }
   await evaluate(panel, "document.querySelector('#toast').hidden = true; true");
   await capture(panel, join(screenshotsDirectory, "sidepanel-saved.png"));
 
   const savedStatus = await evaluate(panel, "document.querySelector('.saved-card .status-pill')?.textContent");
   console.log(`PASS extension loaded with id ${extensionId}`);
   console.log(`PASS generated ${candidateCount} strictly unique candidate cards`);
-  console.log("PASS highlighted exactly one live element");
+  console.log("PASS highlighted exactly one live element above page top-layer content");
   console.log(`PASS bulk retest labeled ${bulkMarkerLabels.length} matched elements with their saved names`);
+  console.log(`PASS Reload + retest displayed ${reloadMarkerLabels.length} unclipped element names`);
   console.log("PASS current-page-first URL accordion with pen-icon website and element renaming");
   console.log(`PASS saved selector reload test: ${savedStatus}`);
   console.log(`PASS screenshots written to ${screenshotsDirectory}`);

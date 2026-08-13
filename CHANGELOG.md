@@ -6,6 +6,8 @@
 - Replaced the header's Local only badge with GitHub, LinkedIn, and Buy Me a Coffee icon links
 - Added named red page markers for individual and bulk saved-selector retests
 - Promoted highlight markers into the browser top layer so page elements cannot cover them, while keeping element-name labels unclipped
+- Added a bounded readiness retry to Reload + retest for elements rendered shortly after page load
+- Made active highlight boxes and labels follow their matched elements while the page scrolls or resizes
 - Replaced the original chevron icon with the selected prism-framed locator identity and generated complete Chrome/Edge store artwork
 - Replaced the Step 1 card's abstract background square with a faded, angled PrismPath logo
 

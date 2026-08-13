@@ -211,6 +211,28 @@ try {
   const highlightUsesTopLayer = await evaluate(fixture, "document.querySelector('[data-prismpath-match]').matches(':popover-open')");
   if (!highlightUsesTopLayer) throw new Error("The match highlight was not promoted above the page's top layer.");
   await evaluate(fixture, "document.querySelector('#prismpath-top-layer-test').remove(); true");
+  const initialHighlightPosition = await evaluate(fixture, `(() => ({
+    markerTop: parseFloat(document.querySelector('[data-prismpath-match]').style.top),
+    targetTop: document.querySelector('[data-testid=customer-email-input]').getBoundingClientRect().top
+  }))()`);
+  await evaluate(fixture, "window.scrollBy(0, 120); true");
+  await waitFor(async () => {
+    const position = await evaluate(fixture, `(() => ({
+      markerTop: parseFloat(document.querySelector('[data-prismpath-match]').style.top),
+      targetTop: document.querySelector('[data-testid=customer-email-input]').getBoundingClientRect().top
+    }))()`);
+    return Math.abs(position.markerTop - (position.targetTop - 3)) < 1
+      && Math.abs(position.markerTop - initialHighlightPosition.markerTop) > 50;
+  }, 3000, "highlight scroll tracking");
+  await evaluate(fixture, "window.scrollTo(0, 0); true");
+  await waitFor(async () => {
+    const position = await evaluate(fixture, `(() => ({
+      markerTop: parseFloat(document.querySelector('[data-prismpath-match]').style.top),
+      targetTop: document.querySelector('[data-testid=customer-email-input]').getBoundingClientRect().top
+    }))()`);
+    return Math.abs(position.markerTop - (position.targetTop - 3)) < 1
+      && Math.abs(position.markerTop - initialHighlightPosition.markerTop) < 1;
+  }, 3000, "highlight scroll restoration");
   await capture(fixture, join(screenshotsDirectory, "fixture-highlight.png"));
 
   await evaluate(panel, "document.querySelector('button[data-action=save]').click(); true");
@@ -312,6 +334,20 @@ try {
   if (JSON.stringify(bulkMarkerLabels) !== JSON.stringify(expectedBulkMarkerLabels)) {
     throw new Error(`Unexpected bulk retest marker labels: ${JSON.stringify(bulkMarkerLabels)}`);
   }
+  await fixture.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `window.addEventListener('DOMContentLoaded', () => {
+      const button = document.querySelector("[data-automation-id='save-customer']");
+      if (!button?.parentNode) return;
+      const placeholder = document.createComment('delayed-save-customer');
+      button.parentNode.insertBefore(placeholder, button);
+      button.remove();
+      window.__prismpathDelayedSaveRestored = false;
+      setTimeout(() => {
+        placeholder.replaceWith(button);
+        window.__prismpathDelayedSaveRestored = true;
+      }, 1800);
+    }, { once: true });`
+  });
   await evaluate(panel, "document.querySelector('#reload-retest-button').click(); true");
   await waitFor(async () => (await evaluate(panel, "document.querySelector('.saved-card .status-pill')?.textContent")) === "1 match", 15000, "reload and retest pass");
   await waitFor(async () => (await evaluate(panel, "document.querySelector('#retest-button').textContent")) === "Retest page", 5000, "retest completion");
@@ -328,6 +364,9 @@ try {
   if (reloadMarkerLabels.some(marker => marker.overflow !== "visible" || marker.labelWidth <= 0 || marker.labelHeight <= 0)) {
     throw new Error(`Reload + retest labels were clipped or hidden: ${JSON.stringify(reloadMarkerLabels)}`);
   }
+  if (!(await evaluate(fixture, "window.__prismpathDelayedSaveRestored === true"))) {
+    throw new Error("The delayed element was not restored during Reload + retest.");
+  }
   await evaluate(panel, "document.querySelector('#toast').hidden = true; true");
   await capture(panel, join(screenshotsDirectory, "sidepanel-saved.png"));
 
@@ -335,8 +374,9 @@ try {
   console.log(`PASS extension loaded with id ${extensionId}`);
   console.log(`PASS generated ${candidateCount} strictly unique candidate cards`);
   console.log("PASS highlighted exactly one live element above page top-layer content");
+  console.log("PASS highlight followed its element while scrolling");
   console.log(`PASS bulk retest labeled ${bulkMarkerLabels.length} matched elements with their saved names`);
-  console.log(`PASS Reload + retest displayed ${reloadMarkerLabels.length} unclipped element names`);
+  console.log(`PASS Reload + retest waited for a delayed element and displayed ${reloadMarkerLabels.length} unclipped names`);
   console.log("PASS current-page-first URL accordion with pen-icon website and element renaming");
   console.log(`PASS saved selector reload test: ${savedStatus}`);
   console.log(`PASS screenshots written to ${screenshotsDirectory}`);

@@ -4,6 +4,8 @@ const SAVED_KEY = "prismpathSavedSelectors";
 const SAVED_SITES_KEY = "prismpathSavedWebsites";
 const SESSION_SELECTION_KEY = "prismpathCurrentSelection";
 const SHOW_LEGACY_KEY = "prismpathShowLegacyCandidates";
+const RELOAD_RETEST_READY_TIMEOUT_MS = 5000;
+const RELOAD_RETEST_RETRY_INTERVAL_MS = 400;
 
 const state = {
   activeTab: null,
@@ -613,17 +615,11 @@ async function retestCurrentPage(reloadFirst) {
     for (const item of selectors) item.lastStatus = "testing";
     renderSaved();
     await sendMessage({ type: "PP_CLEAR_HIGHLIGHTS" });
+    const readinessDeadline = reloadFirst ? Date.now() + RELOAD_RETEST_READY_TIMEOUT_MS : 0;
     let passed = 0;
     for (const item of selectors) {
       try {
-        const response = await sendMessage({
-          type: "PP_VALIDATE_XPATH",
-          xpath: item.validationXPath || item.xpath,
-          scope: savedScope(item),
-          highlight: true,
-          highlightLabel: item.name,
-          preserveHighlights: true
-        });
+        const response = await validateForPageRetest(item, readinessDeadline);
         applyValidationResult(item, response);
         if (response.status === "valid") passed += 1;
       } catch (_) {
@@ -646,6 +642,33 @@ async function retestCurrentPage(reloadFirst) {
     state.retesting = false;
     renderSaved();
   }
+}
+
+async function validateForPageRetest(item, readinessDeadline) {
+  const request = {
+    type: "PP_VALIDATE_XPATH",
+    xpath: item.validationXPath || item.xpath,
+    scope: savedScope(item),
+    preserveHighlights: true
+  };
+
+  while (readinessDeadline && Date.now() < readinessDeadline) {
+    const readiness = await sendMessage({ ...request, highlight: false });
+    if (!["missing", "multiple"].includes(readiness.status)) break;
+    const remaining = readinessDeadline - Date.now();
+    if (remaining <= 0) break;
+    await waitForRetestRetry(Math.min(RELOAD_RETEST_RETRY_INTERVAL_MS, remaining));
+  }
+
+  return sendMessage({
+    ...request,
+    highlight: true,
+    highlightLabel: item.name
+  });
+}
+
+function waitForRetestRetry(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function applyValidationResult(item, response) {

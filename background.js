@@ -274,8 +274,8 @@ function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase, high
       const styles = {
         position: "fixed",
         inset: "auto",
-        left: `${Math.max(0, rect.left - 3)}px`,
-        top: `${Math.max(0, rect.top - 3)}px`,
+        left: `${rect.left - 3}px`,
+        top: `${rect.top - 3}px`,
         right: "auto",
         bottom: "auto",
         width: `${Math.max(0, rect.width + 6)}px`,
@@ -322,7 +322,52 @@ function evaluateAndHighlight(xpath, shouldHighlight, requiredFrameUrlBase, high
           marker.removeAttribute("popover");
         }
       }
-      setTimeout(() => marker.remove(), 5000);
+
+      let positionFrame = 0;
+      let resizeObserver = null;
+      const removeMarker = () => {
+        if (positionFrame) cancelAnimationFrame(positionFrame);
+        window.removeEventListener("scroll", scheduleMarkerPosition, true);
+        window.removeEventListener("resize", scheduleMarkerPosition);
+        resizeObserver?.disconnect();
+        marker.remove();
+      };
+      const updateMarkerPosition = () => {
+        positionFrame = 0;
+        if (!marker.isConnected || !element.isConnected) {
+          removeMarker();
+          return;
+        }
+        const liveRect = element.getBoundingClientRect();
+        const visible =
+          liveRect.width > 0 &&
+          liveRect.height > 0 &&
+          liveRect.bottom > 0 &&
+          liveRect.right > 0 &&
+          liveRect.top < window.innerHeight &&
+          liveRect.left < window.innerWidth;
+        marker.style.setProperty("left", `${liveRect.left - 3}px`, "important");
+        marker.style.setProperty("top", `${liveRect.top - 3}px`, "important");
+        marker.style.setProperty("width", `${Math.max(0, liveRect.width + 6)}px`, "important");
+        marker.style.setProperty("height", `${Math.max(0, liveRect.height + 6)}px`, "important");
+        marker.style.setProperty("visibility", visible ? "visible" : "hidden", "important");
+        const alignLiveLabelRight = liveRect.left + liveRect.width / 2 > window.innerWidth / 2;
+        label.style.setProperty("left", alignLiveLabelRight ? "auto" : "-3px", "important");
+        label.style.setProperty("right", alignLiveLabelRight ? "-3px" : "auto", "important");
+        label.style.setProperty("top", liveRect.top >= 32 ? "-29px" : "calc(100% + 5px)", "important");
+        label.style.setProperty("max-width", `${Math.max(120, Math.min(320, window.innerWidth - 16))}px`, "important");
+      };
+      function scheduleMarkerPosition() {
+        if (!positionFrame) positionFrame = requestAnimationFrame(updateMarkerPosition);
+      }
+      window.addEventListener("scroll", scheduleMarkerPosition, true);
+      window.addEventListener("resize", scheduleMarkerPosition);
+      if (typeof ResizeObserver === "function") {
+        resizeObserver = new ResizeObserver(scheduleMarkerPosition);
+        resizeObserver.observe(element);
+      }
+      updateMarkerPosition();
+      setTimeout(removeMarker, 5000);
     });
   }
 

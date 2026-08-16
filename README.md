@@ -49,7 +49,20 @@ Official references:
 - [Blue Prism 6.8 Chrome, Edge, and Firefox Application Modeller](https://documentation.blueprism.com/bp-6-8/en-us/Guides/chrome-firefox/application-modeller-chrome-firefox.htm)
 - [Blue Prism 7.4 Chrome and Edge Application Modeller](https://documentation.blueprism.com/bp-7-4/en-us/Guides/chrome-firefox/application-modeller-chrome-firefox.htm)
 
-## Install for local testing
+## Install PrismPath
+
+Visit [prismpath.jacksarg.com](https://prismpath.jacksarg.com/) for the main PrismPath page, product information, and the latest installation options.
+
+### Install from an extension store (recommended)
+
+- [Install PrismPath XPath Assistant from the Chrome Web Store](https://chromewebstore.google.com/detail/prismpath-xpath-assistant/lenbdbogeijpchncpofliobfpchajebi)
+- [Install PrismPath XPath Assistant from Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/prismpath-xpath-assistant/oelbgmjhfanihghhpillngkceblpckia)
+
+Existing pages may need one reload immediately after the extension is first installed. Browser-internal pages, extension stores, and some other protected pages cannot be inspected by any extension.
+
+### Install an unpacked copy (local testing)
+
+Use this option when developing PrismPath, testing a local change, or when you specifically need an unpacked copy.
 
 First, clone the repository or download and extract GitHub's **Code → Download ZIP** archive:
 
@@ -74,8 +87,6 @@ The repository root is the unpacked extension folder—it is the directory conta
 2. Enable **Developer mode**.
 3. Select **Load unpacked**.
 4. Choose the extracted `PrismPath` repository folder containing `manifest.json`.
-
-Existing pages may need one reload immediately after the extension is first installed. Browser-internal pages, extension stores, and some other protected pages cannot be inspected by any extension.
 
 ## Saved selector regression checks
 
